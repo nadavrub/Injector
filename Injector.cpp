@@ -122,7 +122,13 @@ int MachOParser<T>::ReloadCommands() {
 		segment_command*	pSeg32;
 		segment_command_64*	pSeg64;
 	} cmds;
-	section			*pSections = 0;
+    union {
+        section*	p32;
+        section_64* p64;
+    } sections;
+    
+    sections.p32 = 0;
+    
 	uint8_t			*pPtr = (uint8_t*)m_pCmdFirst;
     m_vecCommands.resize(m_pMachO->ncmds);
 	for (uint32_t i = 0; i < m_pMachO->ncmds; i++, pPtr += cmds.pHdr->cmdsize) {
@@ -134,17 +140,17 @@ int MachOParser<T>::ReloadCommands() {
 			m_pCmdLastLoadLib = cmds.pLoadDyLib;
 			break;
 		case LC_SEGMENT:
-			pSections = (section*)(cmds.pSeg32 + 1);
+			*(void**)&sections = (void*)(cmds.pSeg32 + 1);
 			for (uint32_t i = 0; i < cmds.pSeg32->nsects; i++) {
-				if ((0 != pSections[i].offset) && (pSections[i].offset < m_uiFirstSectionRVA))
-					m_uiFirstSectionRVA = pSections[i].offset;
+				if ((0 != sections.p32[i].offset) && (sections.p32[i].offset < m_uiFirstSectionRVA))
+					m_uiFirstSectionRVA = sections.p32[i].offset;
 			}
 			break;
 		case LC_SEGMENT_64:
-			pSections = (section*)(cmds.pSeg64 + 1);
+            *(void**)&sections = (void*)(cmds.pSeg64 + 1);
 			for (uint32_t i = 0; i < cmds.pSeg64->nsects; i++) {
-				if ((0 != pSections[i].offset) && (pSections[i].offset < m_uiFirstSectionRVA))
-					m_uiFirstSectionRVA = pSections[i].offset;
+				if ((0 != sections.p64[i].offset) && (sections.p64[i].offset < m_uiFirstSectionRVA))
+					m_uiFirstSectionRVA = sections.p64[i].offset;
 			}
 			break;
 		}
